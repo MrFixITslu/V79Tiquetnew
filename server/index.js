@@ -876,6 +876,10 @@ app.put("/api/clients/:id", authenticateToken, (req, res) => {
 // Job Messages (Chat)
 app.get("/api/jobs/:id/messages", authenticateToken, (req, res) => {
     try {
+        // SECURITY: verify the job belongs to the caller's account before returning messages
+        const job = db.prepare("SELECT id FROM jobs WHERE id = ? AND account_id = ?").get(req.params.id, req.accountId);
+        if (!job) return res.status(404).json({ error: "Job not found" });
+
         const messages = getJobMessages(req.params.id);
         res.json(messages);
     } catch (error) {
@@ -890,19 +894,20 @@ app.post("/api/jobs/:id/messages", authenticateToken, (req, res) => {
     const timestamp = new Date().toISOString();
 
     try {
+        // SECURITY: verify the job belongs to the caller's account before writing a message to it
+        const job = db.prepare("SELECT client FROM jobs WHERE id = ? AND account_id = ?").get(jobId, req.accountId);
+        if (!job) return res.status(404).json({ error: "Job not found" });
+
         db.prepare("INSERT INTO job_messages (id, job_id, sender, content, timestamp, account_id) VALUES (?, ?, ?, ?, ?, ?)")
             .run(id, jobId, sender, content, timestamp, req.accountId);
 
         // Append to project log
-        const job = db.prepare("SELECT client FROM jobs WHERE id = ? AND account_id = ?").get(jobId, req.accountId);
-        if (job) {
-            appendProjectLog(req.accountId, job.client, jobId, {
-                type: 'message',
-                action: `Message sent by ${sender}`,
-                user: sender,
-                details: { content: content.slice(0, 200) }
-            });
-        }
+        appendProjectLog(req.accountId, job.client, jobId, {
+            type: 'message',
+            action: `Message sent by ${sender}`,
+            user: sender,
+            details: { content: (content || '').slice(0, 200) }
+        });
 
         res.status(201).json({ id, jobId, sender, content, timestamp });
     } catch (error) {

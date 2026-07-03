@@ -58,11 +58,15 @@ export const secureFilePath = (uploadsRoot, accountId, relativePath) => {
 
     if (!resolved.startsWith(rootWithSep)) return null;
 
-    // The path must start with the accountId segment
+    // The path's first segment MUST equal the caller's own (sanitized) account ID.
+    // Without this check, a relativePath containing "../<otherAccountId>/..." would
+    // normalize (via path.join/path.resolve) to a path still inside uploadsRoot but
+    // belonging to a DIFFERENT tenant — a cross-account file-disclosure bug.
     const relative = resolved.slice(rootWithSep.length);
     const firstSegment = relative.split(path.sep)[0];
-    // Allow sanitized accountId forms (see sanitizeForPath in index.js)
-    if (!firstSegment || !relative.startsWith(firstSegment)) return null;
+    const expectedSegment = String(accountId || '').replace(/[^a-zA-Z0-9_\-. ]/g, '_').trim().slice(0, 60);
+
+    if (!firstSegment || !expectedSegment || firstSegment !== expectedSegment) return null;
 
     return resolved;
 };

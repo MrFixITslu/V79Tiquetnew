@@ -9,6 +9,9 @@
 import { v4 as uuidv4 } from 'uuid';
 import db from './db.js';
 
+const isProduction = process.env.NODE_ENV === 'production';
+const errMsg = (e) => (isProduction ? 'Internal Server Error' : e.message);
+
 const PLANS = {
   starter:    { name: 'Starter',    price: parseInt(process.env.PLAN_PRICE_STARTER    || '29'),  features: ['Up to 3 users', '50 jobs/month', 'Email support', 'Client portal'] },
   pro:        { name: 'Pro',        price: parseInt(process.env.PLAN_PRICE_PRO        || '79'),  features: ['Up to 15 users', 'Unlimited jobs', 'Priority support', 'File repository', 'Payroll', '2FA security'] },
@@ -48,7 +51,7 @@ export function registerStripeRoutes(app, authenticateToken) {
         planDetails: PLANS[sub.plan] || null,
       });
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: errMsg(e) });
     }
   });
 
@@ -72,7 +75,7 @@ export function registerStripeRoutes(app, authenticateToken) {
         message: 'Stripe is in simulated mode. No real charge will occur.',
       });
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: errMsg(e) });
     }
   });
 
@@ -108,7 +111,7 @@ export function registerStripeRoutes(app, authenticateToken) {
       const sub = db.prepare("SELECT * FROM subscriptions WHERE account_id = ?").get(req.accountId);
       res.json({ success: true, subscription: sub, planDetails: PLANS[plan] });
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: errMsg(e) });
     }
   });
 
@@ -126,7 +129,7 @@ export function registerStripeRoutes(app, authenticateToken) {
 
       res.json({ success: true, message: 'Subscription canceled. Access continues until period end.' });
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: errMsg(e) });
     }
   });
 

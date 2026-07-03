@@ -284,9 +284,14 @@ for (const acc of allAccounts) {
   }
 }
 
-// Check if seeding is needed
+// Check if seeding is needed.
+// SECURITY: demo/seed data (including a login-capable "john@example.com" admin
+// account with a fixed, publicly-known password hash) must NEVER be created on
+// a real production database. Seeding now requires NODE_ENV !== 'production',
+// or an explicit opt-in via SEED_DEMO_DATA=true for staging/demo environments.
 const jobsCount = db.prepare('SELECT count(*) as count FROM jobs').get();
-if (jobsCount.count === 0) {
+const allowSeed = process.env.NODE_ENV !== 'production' || process.env.SEED_DEMO_DATA === 'true';
+if (jobsCount.count === 0 && allowSeed) {
   console.log("Seeding database with initial data...");
 
   const insertJob = db.prepare(`
@@ -380,6 +385,8 @@ if (jobsCount.count === 0) {
 
   seedTransaction();
   console.log("Database seeded successfully.");
+} else if (jobsCount.count === 0) {
+  console.log("Empty database detected in production — skipping demo data seed (set SEED_DEMO_DATA=true to override).");
 }
 
 export default db;
